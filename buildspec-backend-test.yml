@@ -19,3 +19,17 @@ phases:
       # 运行 backend 的 Maven unit tests。
       # 如果任何 test 失败，这个 Test stage 会失败，后面的 Build 和 Deploy 都不会继续。
       - ./mvnw test
+
+# reports 告诉 CodeBuild 去哪里读取测试报告。
+# Maven Surefire 默认会把 unit test 结果写到 target/surefire-reports/*.xml。
+reports:
+  # backend-unit-tests 是我们给这组测试报告起的名字，会显示在 CodeBuild 的 Reports tab 里。
+  backend-unit-tests:
+    # files 是要收集的测试报告文件。
+    files:
+      # TEST-*.xml 是 Maven Surefire 生成的 JUnit XML 报告文件。
+      - "TEST-*.xml"
+    # base-directory 是报告文件所在目录。
+    base-directory: "target/surefire-reports"
+    # file-format 告诉 CodeBuild 这些 XML 是 JUnit 格式。
+    file-format: JUNITXML

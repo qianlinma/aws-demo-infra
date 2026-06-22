@@ -85,6 +85,20 @@ resource "aws_iam_role_policy" "codebuild_backend_logs" {
           "s3:PutObject"
         ]
         Resource = "${aws_s3_bucket.codepipeline_artifacts.arn}/*"
+      },
+      # 第五组权限：允许 backend Test stage 创建并写入 CodeBuild test report。
+      # buildspec-backend-test.yml 里的 reports 会让 CodeBuild 读取 JUnit XML 文件。
+      # 读取后，CodeBuild 需要创建 report group，并把每个 test case 的结果写进去。
+      # 没有这些权限，unit test 可能已经通过，但 UPLOAD_ARTIFACTS 阶段会因为无法上传 report 而失败。
+      {
+        Effect = "Allow"
+        Action = [
+          "codebuild:CreateReportGroup",
+          "codebuild:CreateReport",
+          "codebuild:UpdateReport",
+          "codebuild:BatchPutTestCases"
+        ]
+        Resource = "arn:aws:codebuild:${var.aws_region}:${data.aws_caller_identity.current.account_id}:report-group/demo-backend-test-tf-*"
       }
     ]
   })
