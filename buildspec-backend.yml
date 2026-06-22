@@ -23,12 +23,13 @@ phases:
     # commands 里面是一条一条 shell 命令，CodeBuild 会按顺序执行。
     commands:
       # demo-backend-local 是我们给这次构建出来的本地 image 起的临时名字。
-      # aws-demo-backtend 是 backend 项目目录，也是 backend Dockerfile 所在目录。
-      # Docker 会在这个目录里寻找 Dockerfile，并把这个目录作为 build context。
+      # 现在 backend pipeline 的 Source stage 直接读取 aws-demo-backtend repo。
+      # 所以 CodeBuild 看到的当前目录 . 就是 backend 项目根目录，也是 Dockerfile 所在目录。
+      # Docker 会在当前目录寻找 Dockerfile，并把当前目录作为 build context。
       # 使用 backend 的 Dockerfile 构建一个本地 Docker image。
       # 这里只构建到 CodeBuild 临时机器本地，还没有 push 到 ECR。
       # ECS task definition 配置的是 ARM64，所以这里必须构建 linux/arm64 image。
-      - docker build --platform linux/arm64 -t demo-backend-local:$IMAGE_TAG aws-demo-backtend
+      - docker build --platform linux/arm64 -t demo-backend-local:$IMAGE_TAG .
 
       # 给本地 image 打上 ECR 地址标签。
       # Docker push 必须使用完整 ECR repository 地址作为 image tag。

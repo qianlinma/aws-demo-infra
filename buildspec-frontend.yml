@@ -21,10 +21,11 @@ phases:
     # commands 里面是一条一条 shell 命令，CodeBuild 会按顺序执行。
     commands:
       # demo-frontend-local 是我们给这次构建出来的本地 image 起的临时名字。
-      # aws-demo-frontend 是 frontend 项目目录，也是 frontend Dockerfile 所在目录。
-      # Docker 会在这个目录里寻找 Dockerfile，并把这个目录作为 build context。
+      # 现在 frontend pipeline 的 Source stage 直接读取 aws-demo-frontend repo。
+      # 所以 CodeBuild 看到的当前目录 . 就是 frontend 项目根目录，也是 Dockerfile 所在目录。
+      # Docker 会在当前目录寻找 Dockerfile，并把当前目录作为 build context。
       # ECS task definition 配置的是 ARM64，所以这里必须构建 linux/arm64 image。
-      - docker build --platform linux/arm64 -t demo-frontend-local:$IMAGE_TAG aws-demo-frontend
+      - docker build --platform linux/arm64 -t demo-frontend-local:$IMAGE_TAG .
 
       # 给本地 image 打上 ECR 地址标签。
       # Docker push 必须使用完整 ECR repository 地址作为 image tag。

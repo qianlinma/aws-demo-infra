@@ -228,8 +228,8 @@ resource "aws_codepipeline" "backend" {
         # ConnectionArn 指向刚才授权 GitHub 的 CodeStar Connection。
         ConnectionArn = aws_codestarconnections_connection.github.arn
 
-        # FullRepositoryId 指明 GitHub repo：用户名/仓库名。
-        FullRepositoryId = "qianlinma/aws-demo"
+        # FullRepositoryId 指明 backend 的 GitHub repo：用户名/仓库名。
+        FullRepositoryId = "qianlinma/aws-demo-backtend"
 
         # BranchName 指明监听哪个分支。
         BranchName = "main"
@@ -342,7 +342,7 @@ resource "aws_codepipeline" "frontend" {
   }
 
   # 第一个 stage：Source。
-  # 它负责从同一个 GitHub repo 拉最新代码。
+  # 它负责从 frontend GitHub repo 拉最新代码。
   stage {
     # stage 名字会显示在 CodePipeline 的流程图里。
     name = "Source"
@@ -372,8 +372,8 @@ resource "aws_codepipeline" "frontend" {
         # ConnectionArn 指向已经授权 GitHub 的 CodeStar Connection。
         ConnectionArn = aws_codestarconnections_connection.github.arn
 
-        # FullRepositoryId 指明 GitHub repo：用户名/仓库名。
-        FullRepositoryId = "qianlinma/aws-demo"
+        # FullRepositoryId 指明 frontend 的 GitHub repo：用户名/仓库名。
+        FullRepositoryId = "qianlinma/aws-demo-frontend"
 
         # BranchName 指明监听哪个分支。
         BranchName = "main"
