@@ -10,6 +10,14 @@ variable "aws_profile" {
   type        = string
 }
 
+variable "github_connection_arn" {
+  # 这个 ARN 来自 AWS Console 里已经 Available 的 aws-demo GitHub connection。
+  # backend/frontend pipeline 会共用这一条 connection 去读取不同 GitHub repo。
+  description = "Existing AWS CodeConnections ARN for the GitHub aws-demo connection."
+  type        = string
+  default     = "arn:aws:codeconnections:us-west-2:123316866274:connection/fc97dced-1e43-4b55-aac0-9565058ba8c3"
+}
+
 variable "backend_ecr_repository_name" {
   # ECR repository 用来存放 backend 的 Docker image。
   # 这里不用 demo-backend，是为了避免和你手动创建的 ECR repo 冲突。

@@ -2,15 +2,8 @@
 # CodePipeline 第一步：连接 GitHub
 # ============================================================
 
-# CodeStar Connection 是 AWS 和 GitHub 之间的授权连接。
-# CodePipeline 后面会通过这个 connection 从 GitHub repo 拉代码。
-resource "aws_codestarconnections_connection" "github" {
-  # 这个名字会显示在 AWS Console 的 Developer Tools / Connections 里。
-  name = "demo-github-connection-tf"
-
-  # provider_type 指明这条 connection 要连接到 GitHub。
-  provider_type = "GitHub"
-}
+# CodeConnections connection 是 AWS 和 GitHub 之间的授权连接。
+# 这里复用你已经在 Console 里连接成功的 aws-demo connection。
 
 # ============================================================
 # CodePipeline 第二步：创建 Pipeline 自己需要的 AWS 权限
@@ -64,13 +57,13 @@ resource "aws_iam_role_policy" "codepipeline" {
         # Allow 表示允许这些操作。
         Effect = "Allow"
 
-        # codestar-connections:UseConnection 表示可以使用刚才授权好的 GitHub connection。
+        # codestar-connections:UseConnection 表示可以使用已经授权好的 GitHub connection。
         Action = [
           "codestar-connections:UseConnection"
         ]
 
         # 只允许使用我们这一个 GitHub connection。
-        Resource = aws_codestarconnections_connection.github.arn
+        Resource = var.github_connection_arn
       },
       # 第二组权限：允许 CodePipeline 读写自己的 artifact bucket。
 
@@ -225,8 +218,8 @@ resource "aws_codepipeline" "backend" {
 
       # configuration 是这个 action 的具体配置。
       configuration = {
-        # ConnectionArn 指向刚才授权 GitHub 的 CodeStar Connection。
-        ConnectionArn = aws_codestarconnections_connection.github.arn
+        # ConnectionArn 指向你已经授权好的 aws-demo CodeConnections connection。
+        ConnectionArn = var.github_connection_arn
 
         # FullRepositoryId 指明 backend 的 GitHub repo：用户名/仓库名。
         FullRepositoryId = "qianlinma/aws-demo-backtend"
@@ -369,8 +362,8 @@ resource "aws_codepipeline" "frontend" {
 
       # configuration 是这个 action 的具体配置。
       configuration = {
-        # ConnectionArn 指向已经授权 GitHub 的 CodeStar Connection。
-        ConnectionArn = aws_codestarconnections_connection.github.arn
+        # ConnectionArn 指向你已经授权好的 aws-demo CodeConnections connection。
+        ConnectionArn = var.github_connection_arn
 
         # FullRepositoryId 指明 frontend 的 GitHub repo：用户名/仓库名。
         FullRepositoryId = "qianlinma/aws-demo-frontend"
