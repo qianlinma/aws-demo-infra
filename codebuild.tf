@@ -99,6 +99,18 @@ resource "aws_iam_role_policy" "codebuild_backend_logs" {
           "codebuild:BatchPutTestCases"
         ]
         Resource = "arn:aws:codebuild:${var.aws_region}:${data.aws_caller_identity.current.account_id}:report-group/demo-backend-test-tf-*"
+      },
+      # 第六组权限：允许 backend Test stage 读取 dev DynamoDB products table。
+      # 现在 integration test 会走真实链路：Controller -> Service -> Repository -> DynamoDB。
+      # CodeBuild 要运行这个测试，就必须能 Scan 这张 dev table。
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:Scan",
+          "dynamodb:GetItem",
+          "dynamodb:Query"
+        ]
+        Resource = aws_dynamodb_table.products.arn
       }
     ]
   })
@@ -164,19 +176,19 @@ resource "aws_codebuild_project" "backend" {
 }
 
 # 创建 backend Test stage 专用的 CodeBuild Project。
-# 它只运行 ./mvnw test，不负责 build/push Docker image。
+# 它运行 ./mvnw test，不负责 build/push Docker image。
 resource "aws_codebuild_project" "backend_test" {
   # CodeBuild project 名字会显示在 AWS Console 里。
   name = "demo-backend-test-tf"
 
   # description 说明这个 build project 的用途。
-  description = "Run backend unit tests before building the Docker image."
+  description = "Run backend tests before building the Docker image."
 
   # 复用 backend CodeBuild role。
   # 这个 role 已经有 CloudWatch Logs 和 CodePipeline artifact bucket 权限。
   service_role = aws_iam_role.codebuild_backend.arn
 
-  # unit tests 应该比较快，先给 10 分钟上限。
+  # tests 应该比较快，先给 10 分钟上限。
   build_timeout = 10
 
   # source = CODEPIPELINE 表示源码由 CodePipeline 的 Source stage 传进来。
@@ -184,7 +196,7 @@ resource "aws_codebuild_project" "backend_test" {
     # type 指明源码来源是 CodePipeline。
     type = "CODEPIPELINE"
 
-    # buildspec 指向只运行 unit tests 的构建说明书。
+    # buildspec 指向只运行 tests 的构建说明书。
     buildspec = file("${path.module}/buildspec-backend-test.yml")
   }
 
@@ -197,7 +209,7 @@ resource "aws_codebuild_project" "backend_test" {
 
   # environment 定义 CodeBuild 运行测试时的临时环境。
   environment {
-    # compute_type 表示构建机器规格；SMALL 对当前 unit tests 足够。
+    # compute_type 表示构建机器规格；SMALL 对当前 tests 足够。
     compute_type = "BUILD_GENERAL1_SMALL"
 
     # image 使用和 backend build 相同的 ARM64 CodeBuild 镜像。
@@ -205,6 +217,26 @@ resource "aws_codebuild_project" "backend_test" {
 
     # type = ARM_CONTAINER 表示 CodeBuild 本身运行在 ARM64 架构上。
     type = "ARM_CONTAINER"
+
+    # 给 integration test 提供 dev DynamoDB table 名字。
+    # ProductRepository 会读取 PRODUCTS_TABLE_NAME 来决定 scan 哪张表。
+    environment_variable {
+      # 变量名；backend Java code 里通过 System.getenv("PRODUCTS_TABLE_NAME") 读取。
+      name = "PRODUCTS_TABLE_NAME"
+
+      # 使用 Terraform 当前创建和 seed 的 dev products table。
+      value = aws_dynamodb_table.products.name
+    }
+
+    # 给 AWS SDK 提供 region。
+    # ProductRepository 会优先读取 AWS_REGION，其次 AWS_DEFAULT_REGION。
+    environment_variable {
+      # 变量名；AWS SDK 和我们的 repository 都能识别。
+      name = "AWS_REGION"
+
+      # 当前 dev infra 所在 region。
+      value = var.aws_region
+    }
   }
 }
 
