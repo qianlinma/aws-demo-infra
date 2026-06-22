@@ -4,6 +4,14 @@ version: 0.2
 
 # phases 里面放 CodeBuild 的执行阶段。
 phases:
+  # install 阶段用来准备测试环境。
+  install:
+    # runtime-versions 告诉 CodeBuild 使用哪个语言运行时。
+    # backend 的 pom.xml 要求 Java 21，所以这里必须选择 corretto21。
+    runtime-versions:
+      # corretto21 是 AWS 提供的 Java 21 运行时。
+      java: corretto21
+
   # build 阶段是真正执行测试命令的地方。
   build:
     # commands 里面是一条一条 shell 命令，CodeBuild 会按顺序执行。
