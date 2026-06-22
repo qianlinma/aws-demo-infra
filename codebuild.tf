@@ -149,6 +149,51 @@ resource "aws_codebuild_project" "backend" {
   }
 }
 
+# 创建 backend Test stage 专用的 CodeBuild Project。
+# 它只运行 ./mvnw test，不负责 build/push Docker image。
+resource "aws_codebuild_project" "backend_test" {
+  # CodeBuild project 名字会显示在 AWS Console 里。
+  name = "demo-backend-test-tf"
+
+  # description 说明这个 build project 的用途。
+  description = "Run backend unit tests before building the Docker image."
+
+  # 复用 backend CodeBuild role。
+  # 这个 role 已经有 CloudWatch Logs 和 CodePipeline artifact bucket 权限。
+  service_role = aws_iam_role.codebuild_backend.arn
+
+  # unit tests 应该比较快，先给 10 分钟上限。
+  build_timeout = 10
+
+  # source = CODEPIPELINE 表示源码由 CodePipeline 的 Source stage 传进来。
+  source {
+    # type 指明源码来源是 CodePipeline。
+    type = "CODEPIPELINE"
+
+    # buildspec 指向只运行 unit tests 的构建说明书。
+    buildspec = file("${path.module}/buildspec-backend-test.yml")
+  }
+
+  # Test stage 不需要产出文件给下一步。
+  # 这里仍然使用 CODEPIPELINE，让 CodePipeline 管理这个 action。
+  artifacts {
+    # type 指明 artifact 由 CodePipeline 管理。
+    type = "CODEPIPELINE"
+  }
+
+  # environment 定义 CodeBuild 运行测试时的临时环境。
+  environment {
+    # compute_type 表示构建机器规格；SMALL 对当前 unit tests 足够。
+    compute_type = "BUILD_GENERAL1_SMALL"
+
+    # image 使用和 backend build 相同的 ARM64 CodeBuild 镜像。
+    image = "aws/codebuild/amazonlinux-aarch64-standard:3.0"
+
+    # type = ARM_CONTAINER 表示 CodeBuild 本身运行在 ARM64 架构上。
+    type = "ARM_CONTAINER"
+  }
+}
+
 # 创建 frontend CodeBuild 使用的 IAM Role。
 resource "aws_iam_role" "codebuild_frontend" {
   # 这个名字会显示在 AWS IAM Console 里。

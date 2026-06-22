@@ -112,6 +112,7 @@ resource "aws_iam_role_policy" "codepipeline" {
 
         # 只允许操作我们已经创建的 backend CodeBuild project。
         Resource = [
+          aws_codebuild_project.backend_test.arn,
           aws_codebuild_project.backend.arn,
           aws_codebuild_project.frontend.arn
         ]
@@ -236,8 +237,42 @@ resource "aws_codepipeline" "backend" {
     }
   }
 
-  # 第二个 stage：Build。
-  # 它负责把 Source stage 拉下来的代码交给 CodeBuild。
+  # 第二个 stage：Test。
+  # 它负责先运行 backend unit tests。
+  stage {
+    # stage 名字会显示在 CodePipeline 的流程图里。
+    name = "Test"
+
+    # action 是这个 stage 里真正执行的动作。
+    action {
+      # action 名字会显示在 Test stage 里面。
+      name = "Backend_Test"
+
+      # category = Test 表示这是测试步骤。
+      category = "Test"
+
+      # owner = AWS 表示使用 AWS 内置 action。
+      owner = "AWS"
+
+      # provider = CodeBuild 表示这个 action 会调用 CodeBuild。
+      provider = "CodeBuild"
+
+      # version 固定写 1。
+      version = "1"
+
+      # input_artifacts 指明 Test stage 接收 Source stage 产生的源码包。
+      input_artifacts = ["source_output"]
+
+      # configuration 是这个 action 的具体配置。
+      configuration = {
+        # ProjectName 指明要启动哪个 backend test CodeBuild project。
+        ProjectName = aws_codebuild_project.backend_test.name
+      }
+    }
+  }
+
+  # 第三个 stage：Build。
+  # 它负责把 Source stage 拉下来的代码交给 CodeBuild 构建 Docker image。
   stage {
     # stage 名字会显示在 CodePipeline 的流程图里。
     name = "Build"
@@ -274,7 +309,7 @@ resource "aws_codepipeline" "backend" {
     }
   }
 
-  # 第三个 stage：Deploy。
+  # 第四个 stage：Deploy。
   # 它负责把 Build stage 输出的 imagedefinitions.json 交给 ECS。
   stage {
     # stage 名字会显示在 CodePipeline 的流程图里。

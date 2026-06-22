@@ -1,0 +1,13 @@
+# 这个 buildspec 专门给 backend Test stage 使用。
+# 它只运行 unit tests，不 build Docker image，也不 push ECR。
+version: 0.2
+
+# phases 里面放 CodeBuild 的执行阶段。
+phases:
+  # build 阶段是真正执行测试命令的地方。
+  build:
+    # commands 里面是一条一条 shell 命令，CodeBuild 会按顺序执行。
+    commands:
+      # 运行 backend 的 Maven unit tests。
+      # 如果任何 test 失败，这个 Test stage 会失败，后面的 Build 和 Deploy 都不会继续。
+      - ./mvnw test

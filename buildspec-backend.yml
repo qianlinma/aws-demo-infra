@@ -22,10 +22,6 @@ phases:
   build:
     # commands 里面是一条一条 shell 命令，CodeBuild 会按顺序执行。
     commands:
-      # 先运行 backend unit tests。
-      # 如果任何 test 失败，CodeBuild 会立刻失败，不会继续 build/push Docker image。
-      - ./mvnw test
-
       # demo-backend-local 是我们给这次构建出来的本地 image 起的临时名字。
       # 现在 backend pipeline 的 Source stage 直接读取 aws-demo-backtend repo。
       # 所以 CodeBuild 看到的当前目录 . 就是 backend 项目根目录，也是 Dockerfile 所在目录。
