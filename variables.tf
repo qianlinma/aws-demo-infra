@@ -15,7 +15,7 @@ variable "github_connection_arn" {
   # backend/frontend pipeline 会共用这一条 connection 去读取不同 GitHub repo。
   description = "Existing AWS CodeConnections ARN for the GitHub aws-demo connection."
   type        = string
-  default     = "arn:aws:codeconnections:us-west-2:123316866274:connection/1aeec040-e22e-4f31-b258-fa25b32ac455"
+  default     = "arn:aws:codeconnections:us-west-2:123316866274:connection/9101b154-eacf-484f-9b70-fa3d7486384b"
 }
 
 variable "backend_ecr_repository_name" {
