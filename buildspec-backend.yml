@@ -1,0 +1,57 @@
+# 我们先开发这个 yml，是因为 CodeBuild 需要一份“构建说明书”。
+# 这份文件会告诉 CodeBuild：什么时候登录 ECR、什么时候 build Docker image、什么时候 push image。
+# 现在先只写最小内容，确认 CodeBuild 将来能读懂并执行这个文件。
+version: 0.2
+
+# phases 里面放 CodeBuild 的执行阶段。
+phases:
+  # pre_build 阶段通常放构建前的准备工作。
+  # 这里先只做一件事：登录 Amazon ECR。
+  pre_build:
+    # commands 里面是一条一条 shell 命令，CodeBuild 会按顺序执行。
+    commands:
+      # 使用 AWS CLI 获取 ECR 临时登录密码，再交给 docker login 登录当前账号的 ECR。
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+
+      # CODEBUILD_RESOLVED_SOURCE_VERSION 是 CodeBuild 从 CodePipeline 收到的 Git commit sha。
+      # 这里取前 7 位作为 Docker image tag，例如 8902585。
+      # 这样每次代码变更都会生成不同 tag，不再所有版本都叫 latest。
+      - IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+
+  # build 阶段是真正执行构建命令的地方。
+  build:
+    # commands 里面是一条一条 shell 命令，CodeBuild 会按顺序执行。
+    commands:
+      # demo-backend-local 是我们给这次构建出来的本地 image 起的临时名字。
+      # aws-demo-backtend 是 backend 项目目录，也是 backend Dockerfile 所在目录。
+      # Docker 会在这个目录里寻找 Dockerfile，并把这个目录作为 build context。
+      # 使用 backend 的 Dockerfile 构建一个本地 Docker image。
+      # 这里只构建到 CodeBuild 临时机器本地，还没有 push 到 ECR。
+      # ECS task definition 配置的是 ARM64，所以这里必须构建 linux/arm64 image。
+      - docker build --platform linux/arm64 -t demo-backend-local:$IMAGE_TAG aws-demo-backtend
+
+      # 给本地 image 打上 ECR 地址标签。
+      # Docker push 必须使用完整 ECR repository 地址作为 image tag。
+      - docker tag demo-backend-local:$IMAGE_TAG $REPOSITORY_URI:$IMAGE_TAG
+
+      # 把打好 ECR tag 的 image 上传到 backend ECR。
+      # 这里使用 commit sha tag，避免多个版本都覆盖同一个 latest。
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+
+      # 生成 ECS deploy 需要的 imagedefinitions.json 文件。
+      # ECS Deploy stage 不会自己猜“哪个 container 要换哪个 image”。
+      # 所以我们要明确告诉它：container 名字是 demo-backend，新 image 是 $REPOSITORY_URI:$IMAGE_TAG。
+      # name 必须和 ECS task definition 里的 container name 完全一致。
+      # imageUri 必须是刚刚 push 到 ECR 的完整 image 地址。
+      - printf '[{"name":"demo-backend","imageUri":"%s"}]' "$REPOSITORY_URI:$IMAGE_TAG" > imagedefinitions.json
+
+      # 如果 docker build 成功，打印这句话帮助我们在日志里确认。
+      - echo "Backend buildspec is ready"
+
+# artifacts 表示 CodeBuild 要交回给 CodePipeline 的文件。
+# 这里交回 imagedefinitions.json，给下一步 ECS Deploy stage 使用。
+artifacts:
+  # files 是要输出的文件列表。
+  files:
+    # imagedefinitions.json 告诉 ECS Deploy stage 用哪个新 image 更新哪个 container。
+    - imagedefinitions.json

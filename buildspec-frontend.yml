@@ -1,0 +1,51 @@
+# 这个文件是 frontend CodeBuild 的“构建说明书”。
+# 它告诉 CodeBuild：登录 ECR、构建 frontend Docker image、push 到 frontend ECR、生成 ECS deploy 文件。
+version: 0.2
+
+# phases 里面放 CodeBuild 的执行阶段。
+phases:
+  # pre_build 阶段通常放构建前准备工作。
+  pre_build:
+    # commands 里面是一条一条 shell 命令，CodeBuild 会按顺序执行。
+    commands:
+      # 使用 AWS CLI 获取 ECR 临时登录密码，再交给 docker login 登录当前账号的 ECR。
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+
+      # CODEBUILD_RESOLVED_SOURCE_VERSION 是 CodeBuild 从 CodePipeline 收到的 Git commit sha。
+      # 这里取前 7 位作为 Docker image tag，例如 8902585。
+      # 这样每次代码变更都会生成不同 tag，不再所有版本都叫 latest。
+      - IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+
+  # build 阶段是真正执行构建命令的地方。
+  build:
+    # commands 里面是一条一条 shell 命令，CodeBuild 会按顺序执行。
+    commands:
+      # demo-frontend-local 是我们给这次构建出来的本地 image 起的临时名字。
+      # aws-demo-frontend 是 frontend 项目目录，也是 frontend Dockerfile 所在目录。
+      # Docker 会在这个目录里寻找 Dockerfile，并把这个目录作为 build context。
+      # ECS task definition 配置的是 ARM64，所以这里必须构建 linux/arm64 image。
+      - docker build --platform linux/arm64 -t demo-frontend-local:$IMAGE_TAG aws-demo-frontend
+
+      # 给本地 image 打上 ECR 地址标签。
+      # Docker push 必须使用完整 ECR repository 地址作为 image tag。
+      - docker tag demo-frontend-local:$IMAGE_TAG $REPOSITORY_URI:$IMAGE_TAG
+
+      # 把打好 ECR tag 的 image 上传到 frontend ECR。
+      # 这里使用 commit sha tag，避免多个版本都覆盖同一个 latest。
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+
+      # 生成 ECS deploy 需要的 imagedefinitions.json 文件。
+      # name 必须和 ECS task definition 里的 frontend container name 完全一致，也就是 demo-frontend。
+      # imageUri 必须是刚刚 push 到 frontend ECR 的完整 image 地址。
+      - printf '[{"name":"demo-frontend","imageUri":"%s"}]' "$REPOSITORY_URI:$IMAGE_TAG" > imagedefinitions.json
+
+      # 如果 docker build / push 成功，打印这句话帮助我们在日志里确认。
+      - echo "Frontend buildspec is ready"
+
+# artifacts 表示 CodeBuild 要交回给 CodePipeline 的文件。
+# 这里交回 imagedefinitions.json，给下一步 ECS Deploy stage 使用。
+artifacts:
+  # files 是要输出的文件列表。
+  files:
+    # imagedefinitions.json 告诉 ECS Deploy stage 用哪个新 image 更新哪个 container。
+    - imagedefinitions.json
