@@ -192,3 +192,18 @@ output "frontend_ecs_service_name" {
   description = "Name of the frontend ECS service."
   value       = aws_ecs_service.frontend.name
 }
+
+output "service_discovery_namespace_name" {
+  description = "Cloud Map private DNS namespace used by demo microservices."
+  value       = aws_service_discovery_private_dns_namespace.demo.name
+}
+
+output "service_discovery_namespace_id" {
+  description = "Cloud Map private DNS namespace ID."
+  value       = aws_service_discovery_private_dns_namespace.demo.id
+}
+
+output "inventory_service_base_url" {
+  description = "Base URL product service uses to call inventory service through Cloud Map."
+  value       = "http://${var.inventory_service_discovery_name}.${aws_service_discovery_private_dns_namespace.demo.name}:${var.inventory_service_port}"
+}

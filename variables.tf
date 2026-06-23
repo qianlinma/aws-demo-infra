@@ -125,3 +125,21 @@ variable "private_subnet_cidr_blocks" {
   description = "CIDR blocks for private subnets used by ECS Fargate tasks and internal ALB."
   type        = list(string)
 }
+
+variable "service_discovery_namespace_name" {
+  description = "Private DNS namespace used by Cloud Map service discovery."
+  type        = string
+  default     = "demo.local"
+}
+
+variable "inventory_service_discovery_name" {
+  description = "Cloud Map service name for the inventory service."
+  type        = string
+  default     = "inventory"
+}
+
+variable "inventory_service_port" {
+  description = "Port exposed by the inventory service task."
+  type        = number
+  default     = 8080
+}

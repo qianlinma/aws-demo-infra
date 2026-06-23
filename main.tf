@@ -167,6 +167,12 @@ resource "aws_ecs_cluster" "main" {
   name = var.ecs_cluster_name
 }
 
+resource "aws_service_discovery_private_dns_namespace" "demo" {
+  name        = var.service_discovery_namespace_name
+  description = "Private DNS namespace for demo microservices."
+  vpc         = aws_vpc.main.id
+}
+
 # 定义 IAM trust policy。
 # 这段 是trust policy 表示：允许 ECS Tasks 服务来 assume 下面创建的 IAM role。
 # 注意这里不是给人用的 credentials，而是给 AWS ECS/Fargate 平台启动 task 时使用。
@@ -458,6 +464,10 @@ resource "aws_ecs_task_definition" "backend" {
         {
           name  = "PRODUCTS_TABLE_NAME"
           value = aws_dynamodb_table.products.name
+        },
+        {
+          name  = "INVENTORY_SERVICE_BASE_URL"
+          value = "http://${var.inventory_service_discovery_name}.${aws_service_discovery_private_dns_namespace.demo.name}:${var.inventory_service_port}"
         }
       ]
 
