@@ -207,3 +207,8 @@ output "inventory_service_base_url" {
   description = "Base URL product service uses to call inventory service through Cloud Map."
   value       = "http://${var.inventory_service_discovery_name}.${aws_service_discovery_private_dns_namespace.demo.name}:${var.inventory_service_port}"
 }
+
+output "product_service_discovery_dns_name" {
+  description = "Private DNS name other backend services can use to call the product service."
+  value       = "${var.product_service_discovery_name}.${aws_service_discovery_private_dns_namespace.demo.name}"
+}

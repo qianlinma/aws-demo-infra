@@ -741,6 +741,26 @@ resource "aws_lb_listener" "frontend_http" {
   }
 }
 
+# 创建 Product Service 在 Cloud Map 里的服务名字。
+# ECS Service 会把正在运行的 product task IP 注册到 product.demo.local。
+resource "aws_service_discovery_service" "product" {
+  name = var.product_service_discovery_name
+
+  dns_config {
+    namespace_id   = aws_service_discovery_private_dns_namespace.demo.id
+    routing_policy = "MULTIVALUE"
+
+    dns_records {
+      ttl  = 10
+      type = "A"
+    }
+  }
+
+  health_check_custom_config {
+    failure_threshold = 1
+  }
+}
+
 # 创建 ECS Service，让 Task Definition 真正运行起来。
 # Service 会保持 desired_count 个 task 长期运行；如果 task 挂了，ECS 会自动拉起新的。
 resource "aws_ecs_service" "backend" {
@@ -753,6 +773,12 @@ resource "aws_ecs_service" "backend" {
   # 后端 Spring Boot 加载 AWS SDK 后启动会更久。
   # 给 ECS/ALB 一段宽限时间，避免 task 刚启动还没监听完成就被 health check 判失败。
   health_check_grace_period_seconds = 90 # task 启动后的 90 秒内暂时忽略 ALB 健康检查失败。
+
+  # 把 product ECS task 注册到 Cloud Map。
+  # 注册后，同一个 VPC 内的服务可以用 product.demo.local 找到 product task。
+  service_registries {
+    registry_arn = aws_service_discovery_service.product.arn
+  }
 
   # 把 ECS Service 注册到 ALB Target Group。
   # ECS 会自动把运行中的 Fargate task IP 加入 target group。

@@ -143,3 +143,9 @@ variable "inventory_service_port" {
   type        = number
   default     = 8080
 }
+
+variable "product_service_discovery_name" {
+  description = "Cloud Map service name for the product service."
+  type        = string
+  default     = "product"
+}
