@@ -178,6 +178,13 @@ resource "aws_sns_topic" "product_pipeline_notifications" {
   name = "demo-product-pipeline-notifications-tf"
 }
 
+# 把 product/backend pipeline 的 SNS 通知发送到指定邮箱。
+resource "aws_sns_topic_subscription" "product_pipeline_email" {
+  topic_arn = aws_sns_topic.product_pipeline_notifications.arn
+  protocol  = "email"
+  endpoint  = "qianlin.ma.education@gmail.com"
+}
+
 # 允许 CodeStar Notifications 服务向这个 SNS Topic 发布消息。
 resource "aws_sns_topic_policy" "product_pipeline_notifications" {
   arn = aws_sns_topic.product_pipeline_notifications.arn
