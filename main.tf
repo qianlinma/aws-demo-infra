@@ -472,6 +472,10 @@ resource "aws_ecs_task_definition" "backend" {
         {
           name  = "INVENTORY_SERVICE_BASE_URL"
           value = "http://${var.inventory_service_discovery_name}.${aws_service_discovery_private_dns_namespace.demo.name}:${var.inventory_service_port}"
+        },
+        {
+          name  = "USER_SERVICE_GRPC_TARGET"
+          value = "${var.user_service_discovery_name}.${aws_service_discovery_private_dns_namespace.demo.name}:${var.user_grpc_port}"
         }
       ]
 

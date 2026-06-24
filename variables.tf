@@ -144,6 +144,18 @@ variable "inventory_service_port" {
   default     = 8080
 }
 
+variable "user_service_discovery_name" {
+  description = "Cloud Map service name for the user service."
+  type        = string
+  default     = "user"
+}
+
+variable "user_grpc_port" {
+  description = "gRPC port exposed by the user service task."
+  type        = number
+  default     = 9090
+}
+
 variable "product_service_discovery_name" {
   description = "Cloud Map service name for the product service."
   type        = string
