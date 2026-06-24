@@ -263,6 +263,48 @@ resource "aws_iam_role_policy" "ecs_task_dynamodb_read" {
   })
 }
 
+resource "aws_iam_role_policy" "ecs_task_cloudwatch_metrics" {
+  name = "demo-products-cloudwatch-metrics-tf"
+  role = aws_iam_role.ecs_task.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:PutMetricData"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "cloudwatch:namespace" = "Demo/ProductService"
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "ecs_task_xray_write" {
+  name = "demo-products-xray-write-tf"
+  role = aws_iam_role.ecs_task.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "xray:PutTraceSegments",
+          "xray:PutTelemetryRecords"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 # ============================================================
 # S3：产品图片资源
 # ============================================================
@@ -446,8 +488,8 @@ resource "aws_ecs_task_definition" "backend" {
   family                   = "demo-backend-task-tf"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = 256
-  memory                   = 512
+  cpu                      = 512
+  memory                   = 1024
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
 
@@ -476,6 +518,54 @@ resource "aws_ecs_task_definition" "backend" {
         {
           name  = "USER_SERVICE_GRPC_TARGET"
           value = "${var.user_service_discovery_name}.${aws_service_discovery_private_dns_namespace.demo.name}:${var.user_grpc_port}"
+        },
+        {
+          name  = "APP_ENV"
+          value = "dev"
+        },
+        {
+          name  = "AWS_REGION"
+          value = var.aws_region
+        },
+        {
+          name  = "CLOUDWATCH_METRICS_EXPORT_ENABLED"
+          value = "true"
+        },
+        {
+          name  = "CLOUDWATCH_METRICS_NAMESPACE"
+          value = "Demo/ProductService"
+        },
+        {
+          name  = "OTEL_SERVICE_NAME"
+          value = "demo-backend"
+        },
+        {
+          name  = "OTEL_RESOURCE_ATTRIBUTES"
+          value = "service.namespace=demo,deployment.environment=dev"
+        },
+        {
+          name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
+          value = "http://localhost:4317"
+        },
+        {
+          name  = "OTEL_TRACES_EXPORTER"
+          value = "otlp"
+        },
+        {
+          name  = "OTEL_METRICS_EXPORTER"
+          value = "none"
+        },
+        {
+          name  = "OTEL_LOGS_EXPORTER"
+          value = "none"
+        },
+        {
+          name  = "OTEL_PROPAGATORS"
+          value = "tracecontext,baggage,xray"
+        },
+        {
+          name  = "OTEL_INSTRUMENTATION_LOGBACK_MDC_ENABLED"
+          value = "true"
         }
       ]
 
@@ -493,6 +583,61 @@ resource "aws_ecs_task_definition" "backend" {
           awslogs-group         = aws_cloudwatch_log_group.backend.name
           awslogs-region        = var.aws_region
           awslogs-stream-prefix = "ecs"
+        }
+      }
+    },
+    {
+      name      = "adot-collector"
+      image     = "public.ecr.aws/aws-observability/aws-otel-collector:latest"
+      essential = false
+      command   = ["--config=env:AOT_CONFIG_CONTENT"]
+
+      environment = [
+        {
+          name  = "AWS_REGION"
+          value = var.aws_region
+        },
+        {
+          name  = "AOT_CONFIG_CONTENT"
+          value = <<-EOT
+            receivers:
+              otlp:
+                protocols:
+                  grpc:
+                    endpoint: 0.0.0.0:4317
+                  http:
+                    endpoint: 0.0.0.0:4318
+            processors:
+              batch:
+            exporters:
+              awsxray:
+            service:
+              pipelines:
+                traces:
+                  receivers: [otlp]
+                  processors: [batch]
+                  exporters: [awsxray]
+          EOT
+        }
+      ]
+
+      portMappings = [
+        {
+          containerPort = 4317
+          protocol      = "tcp"
+        },
+        {
+          containerPort = 4318
+          protocol      = "tcp"
+        }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.backend.name
+          awslogs-region        = var.aws_region
+          awslogs-stream-prefix = "adot"
         }
       }
     }
