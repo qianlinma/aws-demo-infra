@@ -68,6 +68,16 @@ output "products_table_arn" {
   value       = aws_dynamodb_table.products.arn
 }
 
+output "product_pipeline_notifications_topic_arn" {
+  description = "ARN of the SNS topic that receives product pipeline success/failure notifications."
+  value       = aws_sns_topic.product_pipeline_notifications.arn
+}
+
+output "product_pipeline_notifications_topic_name" {
+  description = "Name of the SNS topic that receives product pipeline success/failure notifications."
+  value       = aws_sns_topic.product_pipeline_notifications.name
+}
+
 output "product_assets_bucket_name" {
   # 输出 S3 产品图片 bucket 名字。
   # 6 张 demo 产品图片会上传到这个 bucket 的 product-images/ 目录。

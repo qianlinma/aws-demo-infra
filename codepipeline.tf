@@ -170,6 +170,39 @@ resource "aws_s3_bucket" "codepipeline_artifacts" {
 }
 
 # ============================================================
+# CodePipeline 通知：Product pipeline 成功/失败时发 SNS
+# ============================================================
+
+# 创建一个 SNS Topic，用来接收 product/backend pipeline 的状态通知。
+resource "aws_sns_topic" "product_pipeline_notifications" {
+  name = "demo-product-pipeline-notifications-tf"
+}
+
+# 允许 CodeStar Notifications 服务向这个 SNS Topic 发布消息。
+resource "aws_sns_topic_policy" "product_pipeline_notifications" {
+  arn = aws_sns_topic.product_pipeline_notifications.arn
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "codestar-notifications.amazonaws.com"
+        }
+        Action   = "sns:Publish"
+        Resource = aws_sns_topic.product_pipeline_notifications.arn
+        Condition = {
+          StringEquals = {
+            "AWS:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+        }
+      }
+    ]
+  })
+}
+
+# ============================================================
 # CodePipeline 第四步：创建真正的 Pipeline
 # ============================================================
 
@@ -349,6 +382,25 @@ resource "aws_codepipeline" "backend" {
       }
     }
   }
+}
+
+# 监听 product/backend pipeline 的最终成功或失败，并发送到 SNS Topic。
+resource "aws_codestarnotifications_notification_rule" "product_pipeline" {
+  name        = "demo-product-pipeline-notifications-tf"
+  detail_type = "BASIC"
+  resource    = aws_codepipeline.backend.arn
+
+  event_type_ids = [
+    "codepipeline-pipeline-pipeline-execution-succeeded",
+    "codepipeline-pipeline-pipeline-execution-failed"
+  ]
+
+  target {
+    address = aws_sns_topic.product_pipeline_notifications.arn
+    type    = "SNS"
+  }
+
+  depends_on = [aws_sns_topic_policy.product_pipeline_notifications]
 }
 
 # 创建 frontend 的 CodePipeline。
