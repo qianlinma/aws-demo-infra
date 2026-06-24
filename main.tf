@@ -171,6 +171,10 @@ resource "aws_service_discovery_private_dns_namespace" "demo" {
   name        = var.service_discovery_namespace_name
   description = "Private DNS namespace for demo microservices."
   vpc         = aws_vpc.main.id
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # 定义 IAM trust policy。
@@ -742,7 +746,7 @@ resource "aws_lb_listener" "frontend_http" {
 }
 
 # 创建 Product Service 在 Cloud Map 里的服务名字。
-# ECS Service 会把正在运行的 product task IP 注册到 product.demo.local。
+# ECS Service 会把正在运行的 product task IP 注册到 product.demo.internal。
 resource "aws_service_discovery_service" "product" {
   name = var.product_service_discovery_name
 
@@ -758,6 +762,10 @@ resource "aws_service_discovery_service" "product" {
 
   health_check_custom_config {
     failure_threshold = 1
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
@@ -775,7 +783,7 @@ resource "aws_ecs_service" "backend" {
   health_check_grace_period_seconds = 90 # task 启动后的 90 秒内暂时忽略 ALB 健康检查失败。
 
   # 把 product ECS task 注册到 Cloud Map。
-  # 注册后，同一个 VPC 内的服务可以用 product.demo.local 找到 product task。
+  # 注册后，同一个 VPC 内的服务可以用 product.demo.internal 找到 product task。
   service_registries {
     registry_arn = aws_service_discovery_service.product.arn
   }

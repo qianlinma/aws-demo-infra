@@ -129,7 +129,7 @@ variable "private_subnet_cidr_blocks" {
 variable "service_discovery_namespace_name" {
   description = "Private DNS namespace used by Cloud Map service discovery."
   type        = string
-  default     = "demo.local"
+  default     = "demo.internal"
 }
 
 variable "inventory_service_discovery_name" {
