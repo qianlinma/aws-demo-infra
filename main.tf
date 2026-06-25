@@ -493,11 +493,11 @@ resource "aws_ecs_task_definition" "backend" {
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
 
-  # CodeBuild 默认构建 linux/amd64 image，所以 Fargate task 也要使用 X86_64。
-  # 如果以后明确用 docker buildx 构建 linux/arm64 image，再把这里改成 ARM64。
+  # Backend CodeBuild 使用 ARM64 构建环境，并且 buildspec 构建 linux/arm64 image。
+  # 所以 Fargate task 也必须使用 ARM64，避免 container 启动时报 exec format error。
   runtime_platform {
     operating_system_family = "LINUX"
-    cpu_architecture        = "X86_64"
+    cpu_architecture        = "ARM64"
   }
 
   container_definitions = jsonencode([
